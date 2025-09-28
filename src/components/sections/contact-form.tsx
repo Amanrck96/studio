@@ -3,6 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import emailjs from '@emailjs/browser';
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +27,9 @@ const formSchema = z.object({
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
+  subject: z.string().min(5, {
+    message: "Subject must be at least 5 characters.",
+  }),
   message: z.string().min(10, {
     message: "Message must be at least 10 characters.",
   }),
@@ -32,23 +37,66 @@ const formSchema = z.object({
 
 export default function ContactForm() {
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       email: "",
+      subject: "",
       message: "",
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: "Message Sent!",
-      description: "Thank you for reaching out. We will get back to you shortly.",
-    });
-    form.reset();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    
+    try {
+      // Check if environment variables are configured
+      const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
+
+      if (!publicKey || !serviceId || !templateId) {
+        throw new Error("EmailJS configuration missing. Please configure environment variables.");
+      }
+
+      // Initialize EmailJS
+      emailjs.init(publicKey);
+
+      // Send email
+      const result = await emailjs.send(
+        serviceId,
+        templateId,
+        {
+          from_name: values.name,
+          from_email: values.email,
+          subject: values.subject,
+          message: values.message,
+          to_email: 'sgpartnerindia@gmail.com',
+        }
+      );
+
+      console.log('Email sent successfully:', result);
+      
+      toast({
+        title: "Message Sent Successfully!",
+        description: "Thank you for reaching out. We will get back to you shortly.",
+      });
+      
+      form.reset();
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      
+      toast({
+        variant: "destructive",
+        title: "Failed to Send Message",
+        description: "There was an error sending your message. Please try again or contact us directly.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -87,6 +135,19 @@ export default function ContactForm() {
             />
             <FormField
               control={form.control}
+              name="subject"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Subject</FormLabel>
+                  <FormControl>
+                    <Input placeholder="How can we help you?" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="message"
               render={({ field }) => (
                 <FormItem>
@@ -102,7 +163,14 @@ export default function ContactForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" size="lg">Send Message</Button>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              size="lg" 
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Sending..." : "Send Message"}
+            </Button>
           </form>
         </Form>
       </CardContent>
