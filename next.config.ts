@@ -2,7 +2,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  output: 'export',
+  // Use default SSR output to enable API routes like /api/contact
   trailingSlash: true,
   images: {
     unoptimized: true,
