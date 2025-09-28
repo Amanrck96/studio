@@ -42,13 +42,29 @@ export default function ContactForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: "Message Sent!",
-      description: "Thank you for reaching out. We will get back to you shortly.",
-    });
-    form.reset();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to send message");
+      }
+      toast({
+        title: "Message Sent!",
+        description: "Thank you for reaching out. We will get back to you shortly.",
+      });
+      form.reset();
+    } catch (error: unknown) {
+      toast({
+        title: "Something went wrong",
+        description: error instanceof Error ? error.message : "Unable to send your message right now.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -102,7 +118,9 @@ export default function ContactForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" size="lg">Send Message</Button>
+            <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? "Sending..." : "Send Message"}
+            </Button>
           </form>
         </Form>
       </CardContent>
